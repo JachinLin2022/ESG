@@ -1,9 +1,42 @@
 from datasets import load_dataset
 import pandas as pd
+import argparse
+import log
+import math
 
-size = 1000000
+logger = log.get_logger('root')
+
+
+class DynamicDataCollatorForLanguageModeling:
+    pass
 
 def main():
+    parser = argparse.ArgumentParser(description="Command line interface for ESG")
+
+    # Required parameters
+    parser.add_argument("--mask_stratagy", default=None, type=str, required=True,
+                        help="random or dynamic")
+    parser.add_argument("--data_path", default=None, type=str, required=True,
+                        help="The input data path. Should contain the data files for the task.")
+    parser.add_argument("--model_name_or_path", default=None, type=str, required=True,
+                        help="Path to the pre-trained model or shortcut name")
+    parser.add_argument("--output_dir", default=None, type=str, required=True,
+                        help="The output directory where the model predictions and checkpoints will be written")
+    parser.add_argument("--batch_size", default=None, type=int, required=True,
+                        help="Batch_size per gpu")
+    parser.add_argument("--chunk_size", default=None, type=int, required=True,
+                        help="The size of input to model")                    
+    parser.add_argument("--training_size", default=None, type=int, required=True,
+                        help="The number of example to be trained")
+    parser.add_argument('--do_train', action='store_true',
+                        help="Whether to perform training")
+    parser.add_argument('--do_eval', action='store_true',
+                        help="Whether to perform evaluation")
+
+
+    args = parser.parse_args()
+    logger.info("Parameters: {}".format(args))
+
     # source = pd.read_csv("/home/linzhisheng/esg/source.csv")
     # source = source[source['Abstract'].notna()]
     # print(source)
@@ -11,14 +44,14 @@ def main():
     # source.to_csv("source_all", index=False)
     # exit(0)
 
-    esg_dataset = load_dataset("csv", data_files="source_100sw")
+    esg_dataset = load_dataset("csv", data_files=args.data_path)
     # esg_dataset  = esg_dataset.train_test_split(test_size=0.2, shuffle=True)
     print(esg_dataset)
 
 
     from transformers import AutoModelForMaskedLM
 
-    model_checkpoint = "roberta-large"
+    model_checkpoint = args.model_name_or_path
     model = AutoModelForMaskedLM.from_pretrained(model_checkpoint)
     from transformers import AutoTokenizer
 
@@ -41,7 +74,7 @@ def main():
     print(tokenized_datasets)
 
 
-    chunk_size = 128
+    chunk_size = args.chunk_size
     def group_texts(examples):
         # Concatenate all texts
         concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
@@ -64,8 +97,8 @@ def main():
     print(lm_datasets)
 
 
-    train_size = size
-    test_size = int(0.1 * size)
+    train_size = args.training_size
+    test_size = int(0.1 * args.training_size)
 
     downsampled_dataset = lm_datasets["train"].train_test_split(
         train_size=train_size, test_size=test_size, seed=42
@@ -75,13 +108,13 @@ def main():
 
     from transformers import TrainingArguments
 
-    batch_size = 16
+    batch_size = args.batch_size
     # Show the training loss with every epoch
     logging_steps = len(downsampled_dataset["train"]) // batch_size
     model_name = model_checkpoint.split("/")[-1]
 
     training_args = TrainingArguments(
-        output_dir=f"{model_name}-finetuned-esg-100w",
+        output_dir=args.output_dir,
         overwrite_output_dir=True,
         evaluation_strategy="epoch",
         learning_rate=2e-5,
@@ -98,7 +131,15 @@ def main():
     from transformers import Trainer
     from transformers import DataCollatorForLanguageModeling
 
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
+
+
+    if args.mask_stratagy == 'random':
+        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
+    elif args.mask_stratagy == 'dynamic':
+        data_collator = DynamicDataCollatorForLanguageModeling()
+
+
+
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -107,16 +148,17 @@ def main():
         data_collator=data_collator,
     )
 
-    import math
+    
+    if args.do_eval:
+        eval_results = trainer.evaluate()
+        print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
 
-    # eval_results = trainer.evaluate()
-    # print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
+    if args.do_train:
+        trainer.train()
 
-
-    trainer.train()
-
-    eval_results = trainer.evaluate()
-    print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
+    if args.do_eval:
+        eval_results = trainer.evaluate()
+        print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
 
     trainer.save_model()
 

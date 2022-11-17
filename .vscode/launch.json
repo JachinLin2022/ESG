@@ -1,0 +1,31 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/linzhisheng/pet/cli.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--method=pet",
+                "--pattern_ids=0",
+                "--data_dir=/home/linzhisheng/yelp_review_polarity_csv",
+                "--model_type=roberta",
+                "--model_name_or_path=roberta-base",
+                "--task_name=yelp-polarity",
+                "--output_dir=/home/linzhisheng/pet/res",
+                "--do_train",
+                "--do_eval",
+                "--train_examples=10",
+                "--test_examples=1000",
+                "--unlabeled_examples=10",
+                "--pet_repetitions=1"
+                ]
+        }
+    ]
+}

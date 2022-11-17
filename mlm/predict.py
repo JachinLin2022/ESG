@@ -5,29 +5,30 @@ from keybert import KeyBERT
 from flair.embeddings import TransformerDocumentEmbeddings
 import torch
 
-model_checkpoint = "roberta-large"
-local = './roberta-large-finetuned-esg-100w'
+model_checkpoint = "roberta-large-finetuned-esg-100w"
+local = './lzs_test'
 
-origin_model = AutoModelForMaskedLM.from_pretrained(model_checkpoint)
+origin_model = AutoModelForMaskedLM.from_pretrained('roberta-large')
+random_mask_model = AutoModelForMaskedLM.from_pretrained(model_checkpoint)
 model = AutoModelForMaskedLM.from_pretrained(local)
-tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
+tokenizer = AutoTokenizer.from_pretrained('roberta-large')
 
 def predict(model):
     mask_filler = pipeline(
         "fill-mask", model=model,tokenizer = tokenizer
     )
     TEMPLATES = [
-        # 'The sentence is about <mask>. ',
-        # 'The Keyword is <mask>. ',
-        ' The keyword is <mask>.',
+        ' The sentence is about <mask>. ',
+        # ' The Keyword is <mask>. ',
+        # ' The keyword is <mask>.',
         # 'The keyphrase is <mask>. ',
         # 'The key word is <mask>. ',
         # ' In summary, the sentence is about <mask>.',
         ' In summary, the related word is <mask>.',
-        ' In summary, the keyword word is <mask>.'
+        # ' In summary, the keyword is <mask>.'
     ]
 
-    input = "These individuals conduct safety inspections to eliminate hazards and provide first-aid assistance in the event of an accident. "
+    input = "To contribute to climate change mitigation, we actively explore opportunities to support local renewable energy generation. Solar panels are installed at Hang Seng 113 to generate renewable energy."
     res_list = []
     for T in TEMPLATES:
         mask_input =  input + T
@@ -68,14 +69,15 @@ def predict(model):
         # for pred in preds:
         #     print(f">>> {pred['token_str']} >>> score is {pred['score']}")
 
-    print(res_list)
-    # using key bert
-    hf_model = pipeline("feature-extraction", model=model, tokenizer = tokenizer)
-    kw_model = KeyBERT(model = hf_model)
+    # print(res_list)
+    # # using key bert
+    # hf_model = pipeline("feature-extraction", model=model, tokenizer = tokenizer)
+    # kw_model = KeyBERT(model = hf_model)
 
-    keywords = kw_model.extract_keywords(input, top_n = 100)
-    print(keywords)
-    print(len(keywords))
+    # keywords = kw_model.extract_keywords(input, top_n = 100)
+    # print(keywords)
+    # print(len(keywords))
 predict(origin_model)
+predict(random_mask_model)
 predict(model)
 

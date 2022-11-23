@@ -1,3 +1,7 @@
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2"
+import torch
+print(torch.cuda.device_count())
 from datasets import load_dataset
 from dataclasses import dataclass
 import pandas as pd
@@ -14,7 +18,6 @@ nlp = spacy.load("en_core_web_sm")
 
 # from transformers.data import _torch_collate_batch
 logger = log.get_logger('root')
-
 
 @dataclass
 class DynamicDataCollatorForLanguageModeling:
@@ -201,7 +204,7 @@ def main():
     parser.add_argument("--chunk_size", default=None, type=int, required=True,
                         help="The size of input to model")
     parser.add_argument("--training_size", default=None, type=int, required=True,
-                        help="The number of example to be trained")
+                        help="The number of example to be trained")                  
     parser.add_argument('--do_train', action='store_true',
                         help="Whether to perform training")
     parser.add_argument('--do_eval', action='store_true',
@@ -277,6 +280,7 @@ def main():
     downsampled_dataset = lm_datasets["train"].train_test_split(
         train_size=train_size, test_size=test_size, seed=42
     )
+    downsampled_dataset.save_to_disk("esg-preprocessed")
     print(downsampled_dataset)
 
     from transformers import TrainingArguments
@@ -297,7 +301,7 @@ def main():
         fp16=True,
         logging_steps=logging_steps,
         save_strategy="epoch",
-        save_total_limit=1
+        save_total_limit=3
     )
 
     from transformers import Trainer
@@ -321,9 +325,9 @@ def main():
     )
 
     
-    if args.do_eval:
-        eval_results = trainer.evaluate()
-        print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
+    # if args.do_eval:
+    #     eval_results = trainer.evaluate()
+    #     print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
 
     if args.do_train:
         trainer.train()
@@ -333,7 +337,6 @@ def main():
         print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
 
     trainer.save_model()
-
 
 
 

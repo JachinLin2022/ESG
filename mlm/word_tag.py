@@ -9,17 +9,21 @@ tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
 
 # esg_dataset = load_dataset("csv", data_files='source_1w')
-esg_dataset = pd.read_csv('source_1w')
+esg_dataset = pd.read_csv('/home/linzhisheng/esg/mlm/source_all_format', nrows=2000000)
 esg_dataset['Label'] = esg_dataset['Abstract']
 print(esg_dataset)
-# 词性标记
-# docs = nlp(esg_dataset['train']['Abstract'])
+
 
 for idx,row in esg_dataset.iterrows():
-    # if idx != 3:
+    if idx % 1000 == 0:
+        print(idx)
+    if idx != 0 and idx % 500000 == 0:
+        print('check point')
+        esg_dataset.to_csv('/home/linzhisheng/esg/mlm/source_200w_mask', index=False)
     #     continue
     text = row['Abstract']
-    text = re.sub(r" +", ' ', text)
+    # text = re.sub(r" +", ' ', text)
+    # text = remove_upprintable_chars(text)
     doc = nlp(text)
     mask_set = set()
     count = 0
@@ -28,10 +32,10 @@ for idx,row in esg_dataset.iterrows():
         # if token.tag_ in ['JJ']:
         #     print('asdas', (token.text, token.dep_, token.head.text, token.tag_))
         
-        if token.dep_ in ['nsubjpass','nsubj', 'dobj', 'amod'] and token.tag_ not in ['NFP']:
+        if token.dep_ in ['ROOT', 'nsubjpass','nsubj', 'dobj', 'amod'] and token.tag_ not in ['NFP']:
             # print('zzzz', (token.text, token.head.text, token.dep_, token.tag_))
             if token.text.isalpha():
-                mask_set.add(token.text)
+                mask_set.add((count,token.text))
             if token.head.text.isalpha():
                 mask_set.add(token.head.text)
         count = count + 1
@@ -52,6 +56,7 @@ for idx,row in esg_dataset.iterrows():
 
     mask_text = ''
     label_test = ''
+    count_mask = 0
     count = 0
     for token in doc:
         if token.text.find(' ') >= 0:
@@ -59,23 +64,24 @@ for idx,row in esg_dataset.iterrows():
             continue
         # print(idx)
         # print((token.text,len(token.text)))
-        if token.text in mask_set:
-            label_test = label_test + ' ' + token.text
+        if (count, token.text) in mask_set:
             mask_text = mask_text + ' ' + '<mask>'
             input_ids = tokenizer(' ' + token.text)['input_ids']
+            count_mask = count_mask + 1
             # print((token.text,input_ids))
             for i in range(len(input_ids) - 3):
                 # print(token.text)
                 mask_text = mask_text + ' ' + '<mask>'
-                
+                count_mask = count_mask + 1
         else:
             mask_text = mask_text + ' ' + token.text
-            label_test = label_test + ' ' + token.text
+        label_test = label_test + ' ' + token.text
         count = count + 1
     # print(mask_set)
     # print(label_test)
     row['Abstract'] = mask_text
     row['Label'] = label_test
+    # print(count_mask/len(doc))
     # print(tokenizer(mask_text))
     # print(tokenizer(label_test))
     # print(tokenizer.decode(tokenizer(label_test)['input_ids']))
@@ -83,4 +89,4 @@ for idx,row in esg_dataset.iterrows():
     # print(mask_text)
     # break
 
-esg_dataset.to_csv('source_1w_mask_no_space', index=False)
+esg_dataset.to_csv('/home/linzhisheng/esg/mlm/source_200w_mask', index=False)

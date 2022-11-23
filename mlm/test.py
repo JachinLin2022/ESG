@@ -30,7 +30,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 # exit(0)
 
 
-esg_dataset = pd.read_csv('source_19w_mask')
+esg_dataset = pd.read_csv('/home/linzhisheng/esg/mlm/source_200w_mask', nrows=1000000)
 
 count = 0
 for idx,row in esg_dataset.iterrows():
@@ -42,9 +42,9 @@ for idx,row in esg_dataset.iterrows():
     t2 = tokenizer(row['Label'])
     if len(t1['input_ids']) != len(t2['input_ids']):
         print(idx)
-        print(t1['input_ids'])
-        print(t2['input_ids'])
-        print(row['Abstract'])
+        # print(t1['input_ids'])
+        # print(t2['input_ids'])
+        # print(row['Abstract'])
         # print(row['Label'])
         print(tokenizer.decode(t1['input_ids']))
         # print(tokenizer.decode(t2['input_ids']))

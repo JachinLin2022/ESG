@@ -8,25 +8,71 @@ model_checkpoint = 'roberta-large'
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
 
-# esg_dataset = load_dataset("csv", data_files='source_1w')
-esg_dataset = pd.read_csv('/home/linzhisheng/esg/mlm/source_100sw')
+# # esg_dataset = load_dataset("csv", data_files='source_1w')
+esg_dataset = pd.read_csv('/home/linzhisheng/esg/mlm/source_all_format', nrows = 500000)
 esg_dataset['Label'] = esg_dataset['Abstract']
 print(esg_dataset)
-# 词性标记
-# docs = nlp(esg_dataset['train']['Abstract'])
-def remove_upprintable_chars(s):
-    """移除所有不可见字符"""
-    return ''.join(x for x in s if x.isprintable())
+idx = 0
+
+def mask_text(t):
+    for doc in nlp.pipe(t['Abstract'],n_process=-1):
+        mask_set = set()
+        count = 0
+        for token in doc:
+            if token.dep_ in ['ROOT', 'nsubjpass','nsubj', 'dobj', 'amod'] and token.tag_ not in ['NFP']:
+                if token.text.isalpha():
+                    mask_set.add((count,token.text))
+                # if token.head.text.isalpha():
+                #     mask_set.add(token.head.text)
+            count = count + 1
+        mask_text = ''
+        label_test = ''
+        count = 0
+        for token in doc:
+            if token.text.find(' ') >= 0:
+                # print(idx)
+                continue
+            if (count, token.text) in mask_set:
+                mask_text = mask_text + ' ' + '<mask>'
+                input_ids = tokenizer(' ' + token.text)['input_ids']
+                # count_mask = count_mask + 1
+                for i in range(len(input_ids) - 3):
+                    mask_text = mask_text + ' ' + '<mask>'
+                    # count_mask = count_mask + 1
+            else:
+                mask_text = mask_text + ' ' + token.text
+            label_test = label_test + ' ' + token.text
+            count = count + 1
+        global idx
+        esg_dataset['Abstract'][idx] = mask_text
+        esg_dataset['Label'][idx] = label_test
+        # print(mask_set)
+        idx = idx + 1
+        if idx % 1000 == 0:
+            print(idx)
+
+for i in range(1):
+    print(f'zzzzzzz: {i}')
+    t = esg_dataset['Abstract']
+    # print(t)
+    mask_text(t)
+mask_text(esg_dataset)
 
 
+esg_dataset.to_csv('source_300w_mask', index=False)
+exit(0)
 for idx,row in esg_dataset.iterrows():
-    if idx % 1000 == 0:
+    if idx % 10 == 0:
         print(idx)
-    #     continue
+    # continue
     text = row['Abstract']
     text = re.sub(r" +", ' ', text)
-    text = remove_upprintable_chars(text)
-    doc = nlp(text)
+    # text = remove_upprintable_chars(text)
+    doc = nlp.pipe(text)
+    for token in doc:
+        print(token)
+    break
+
     mask_set = set()
     count = 0
     for token in doc:
@@ -91,4 +137,5 @@ for idx,row in esg_dataset.iterrows():
     # print(mask_text)
     # break
 
-esg_dataset.to_csv('source_19w_mask', index=False)
+# esg_dataset.to_csv('source_all_mask', index=False)
+print(esg_dataset)

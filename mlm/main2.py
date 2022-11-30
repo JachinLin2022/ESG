@@ -1,5 +1,5 @@
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2"
+# import os
+# os.environ['CUDA_VISIBLE_DEVICES'] = "1,2"
 import torch
 print(torch.cuda.device_count())
 from datasets import load_dataset
@@ -209,70 +209,73 @@ def main():
                         help="Whether to perform training")
     parser.add_argument('--do_eval', action='store_true',
                         help="Whether to perform evaluation")
-
+    parser.add_argument('--load_cache_dir', default=None, type=str, required=True,
+                        help="Whether to load cache")
+    parser.add_argument('--tokenizer_path', default=None, type=str, required=True,
+                        help="tokenizer_path")
+    
     args = parser.parse_args()
     logger.info("Parameters: {}".format(args))
 
-
-    esg_dataset = load_dataset("csv", data_files=args.data_path)
-    # esg_dataset  = esg_dataset.train_test_split(test_size=0.2, shuffle=True)
-    print(esg_dataset)
-
-
     from transformers import AutoModelForMaskedLM
-
+    from datasets import load_from_disk
     model_checkpoint = args.model_name_or_path
     model = AutoModelForMaskedLM.from_pretrained(model_checkpoint)
     from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
+    
+    if not args.load_cache_dir:
+        esg_dataset = load_dataset("csv", data_files=args.data_path)
+        # esg_dataset  = esg_dataset.train_test_split(test_size=0.2, shuffle=True)
+        print(esg_dataset)
+
+        print("start to tokenize")
+        def tokenize_function(examples):
+            result = tokenizer(examples["Abstract"])
+            if args.mask_stratagy == 'dynamic':
+                label = tokenizer(examples["Label"])            
+                result['labels'] = label['input_ids']
+
+            return result
 
 
-    print("start to tokenize")
-    def tokenize_function(examples):
-        result = tokenizer(examples["Abstract"])
+        # Use batched=True to activate fast multithreading!
+        remove_columns = ['Abstract']
         if args.mask_stratagy == 'dynamic':
-            label = tokenizer(examples["Label"])            
-            result['labels'] = label['input_ids']
-
-        return result
-
-
-    # Use batched=True to activate fast multithreading!
-    remove_columns = ['Abstract']
-    if args.mask_stratagy == 'dynamic':
-        remove_columns.append('Label')
-    tokenized_datasets = esg_dataset.map(
-        tokenize_function, batched=True, remove_columns = remove_columns
-    )
-    print(tokenized_datasets)
+            remove_columns.append('Label')
+        tokenized_datasets = esg_dataset.map(
+            tokenize_function, batched=True, remove_columns = remove_columns
+        )
+        print(tokenized_datasets)
 
 
 
-    chunk_size = args.chunk_size
-    def group_texts(examples):
-        # Concatenate all texts
-        concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
-        # Compute length of concatenated texts
-        total_length = len(concatenated_examples[list(examples.keys())[0]])
-        # We drop the last chunk if it's smaller than chunk_size
-        total_length = (total_length // chunk_size) * chunk_size
-        # Split by chunks of max_len
-        result = {
-            k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
-            for k, t in concatenated_examples.items()
-        }
-        # Create a new labels column
-        if args.mask_stratagy != 'dynamic':
-            result["labels"] = result["input_ids"].copy()
+        chunk_size = args.chunk_size
+        def group_texts(examples):
+            # Concatenate all texts
+            concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
+            # Compute length of concatenated texts
+            total_length = len(concatenated_examples[list(examples.keys())[0]])
+            # We drop the last chunk if it's smaller than chunk_size
+            total_length = (total_length // chunk_size) * chunk_size
+            # Split by chunks of max_len
+            result = {
+                k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
+                for k, t in concatenated_examples.items()
+            }
+            # Create a new labels column
+            if args.mask_stratagy != 'dynamic':
+                result["labels"] = result["input_ids"].copy()
 
-        return result
+            return result
 
 
 
-    lm_datasets = tokenized_datasets.map(group_texts, batched=True)
-    print(lm_datasets)
-
+        lm_datasets = tokenized_datasets.map(group_texts, batched=True)
+        print(lm_datasets)
+    else:
+        lm_datasets = load_from_disk(args.load_cache_dir)
 
     train_size = args.training_size
     test_size = int(0.1 * args.training_size)
@@ -301,7 +304,7 @@ def main():
         fp16=True,
         logging_steps=logging_steps,
         save_strategy="epoch",
-        save_total_limit=3
+        save_total_limit=1
     )
 
     from transformers import Trainer
@@ -310,7 +313,7 @@ def main():
 
 
     if args.mask_stratagy == 'random':
-        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.35)
+        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
     elif args.mask_stratagy == 'dynamic':
         data_collator = DynamicDataCollatorForLanguageModeling(tokenizer=tokenizer)
 
@@ -325,9 +328,9 @@ def main():
     )
 
     
-    # if args.do_eval:
-    #     eval_results = trainer.evaluate()
-    #     print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
+    if args.do_eval:
+        eval_results = trainer.evaluate()
+        print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
 
     if args.do_train:
         trainer.train()

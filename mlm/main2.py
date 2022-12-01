@@ -274,16 +274,17 @@ def main():
 
         lm_datasets = tokenized_datasets.map(group_texts, batched=True)
         print(lm_datasets)
+        train_size = args.training_size
+        test_size = int(0.1 * args.training_size)
+
+        downsampled_dataset = lm_datasets["train"].train_test_split(
+            train_size=train_size, test_size=test_size, seed=42
+        )
+        # downsampled_dataset.save_to_disk("esg-preprocessed")
+        
     else:
-        lm_datasets = load_from_disk(args.load_cache_dir)
+        downsampled_dataset = load_from_disk(args.load_cache_dir)
 
-    train_size = args.training_size
-    test_size = int(0.1 * args.training_size)
-
-    downsampled_dataset = lm_datasets["train"].train_test_split(
-        train_size=train_size, test_size=test_size, seed=42
-    )
-    downsampled_dataset.save_to_disk("esg-preprocessed")
     print(downsampled_dataset)
 
     from transformers import TrainingArguments
@@ -340,7 +341,8 @@ def main():
         print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
 
     trainer.save_model()
-
+    import os
+    os.system('shutdown -s')
 
 
 

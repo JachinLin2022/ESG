@@ -1,4 +1,72 @@
 # Update
+## Reference
+1. NLP预训练中的mask方式总结 https://zhuanlan.zhihu.com/p/434672623
+2. MDERank: A Masked Document Embedding Rank Approach for Unsupervised Keyphrase Extraction https://aclanthology.org/2022.findings-acl.34.pdf
+3. zero-shot learning https://joeddav.github.io/blog/2020/05/29/ZSL.html
+4. FinBERT: Financial Sentiment Analysis with Pre-trained Language Models https://arxiv.org/pdf/1908.10063.pdf
+5. SCI BERT: A Pretrained Language Model for Scientific Text  https://arxiv.org/pdf/1903.10676.pdf
+6. Domain-Specific BERT Models https://mccormickml.com/2020/06/22/domain-specific-bert-tutorial/#3-comparing-scibert-and-bert
+
+## 2022/12/1
+1. 粗粒度分类：
+```
+0                    CommunityDataPoints  113515329
+10       ProductResponsibilityDataPoints  112224442
+12                   WorkforceDataPoints  111043370
+22                 HumanRightsDataPoints  115004608
+1089754               EmissionDataPoints  113162528
+1089758             InnovationDataPoints  130945423
+1089760            ResourceUseDataPoints  115004607
+1709643             ManagementDataPoints  114003098
+1709644           ShareholdersDataPoints  111498446
+1709646            CsrStrategyDataPoints  113164169
+```
+对有标签的数据提取词表，做成训练集，100w
+1. 修改Mask策略重新训练200w，对于选定的词性单词，80%情况下进行Whole Word Mask，20%情况下保持原词汇。
+  + 基于模板的关键词不一定在原句中出现
+  + 使用KerBert+预训练embedding层抽取的关键字是原句出现的
+2. 基于ESG语料训练roberta tokenizer
+  + 使用原始roberta tokenizer，选取前top 50000个词，计算获得关键词占原句单词个数的比例，100条平均比例为0.601，原因是roberta-large原始vocab当中不包含原句中的部分单词
+```
+top_tokens = torch.topk(mask_token_logits, 50000, dim=1).indices[0].tolist()
+
+['interpublics', 'directors', 'are', 'elected', 'each', 'year', 'by', 'interpublics', 'stockholders', 'at', 'the', 'annual', 'meeting', 'of', 'stockholders', 'interpublics', 'corporate', 'governance', 'committee', 'recommends', 'nominees', 'to', 'the', 'board', 'of', 'directors', 'and', 'the', 'board', 'proposes', 'a', 'slate', 'of', 'nominees', 'to', 'the', 'stockholders', 'for', 'election']
+-----------------------------------
+ The Keyword is <mask>.:intersect:{'year', 'board', 'for', 'elected', 'a', 'are', 'each', 'to', 'annual', 'recommends', 'at', 'directors', 'nominees', 'by', 'and', 'governance', 'the', 'corporate', 'slate', 'of', 'committee', 'election', 'meeting'}, radio is 0.5897435897435898
+
+ The keyword is <mask>.:intersect:{'year', 'board', 'for', 'elected', 'a', 'are', 'each', 'to', 'annual', 'recommends', 'at', 'directors', 'nominees', 'by', 'and', 'governance', 'the', 'corporate', 'slate', 'of', 'committee', 'election', 'proposes', 'meeting'}, radio is 0.6153846153846154
+
+ In summary, the related word is <mask>.:intersect:{'year', 'board', 'for', 'elected', 'a', 'are', 'each', 'to', 'annual', 'recommends', 'at', 'directors', 'nominees', 'by', 'and', 'governance', 'the', 'corporate', 'slate', 'of', 'committee', 'election', 'proposes', 'meeting'}, radio is 0.6153846153846154
+
+ In summary, the keyword is <mask>.:intersect:{'year', 'board', 'for', 'elected', 'a', 'are', 'each', 'to', 'annual', 'recommends', 'at', 'directors', 'nominees', 'by', 'and', 'governance', 'the', 'corporate', 'slate', 'of', 'committee', 'election', 'proposes', 'meeting'}, radio is 0.6153846153846154
+
+ <mask> is the keyword.:intersect:{'year', 'board', 'for', 'a', 'are', 'each', 'to', 'annual', 'at', 'directors', 'nominees', 'by', 'and', 'the', 'governance', 'corporate', 'slate', 'of', 'committee', 'election', 'proposes', 'meeting'}, radio is 0.5641025641025641
+
+ In summary, <mask> is the related word.:intersect:{'year', 'board', 'for', 'elected', 'a', 'are', 'each', 'to', 'annual', 'recommends', 'at', 'directors', 'nominees', 'by', 'and', 'governance', 'the', 'corporate', 'slate', 'of', 'committee', 'election', 'proposes', 'meeting'}, radio is 0.6153846153846154
+```
+  + 在ESG语料训练tokenizer，vocab size=50265，basevocab与esg vocab的intersection = 0.547，关键词占原句单词个数的比例为0.622
+```
+['Inter', 'public', 's', 'ĠDirectors', 'Ġare', 'Ġelected', 'Ġeach', 'Ġyear', 'Ġby', 'ĠInter', 'public', 's', 'Ġstock', 'holders', 'Ġat', 'Ġthe', 'Ġannual', 'Ġmeeting', 'Ġof', 'Ġstock', 'holders', '.', 'ĠInter', 'public', 's', 'ĠCorporate', 'ĠGovern', 'ance', 'ĠCommittee', 'Ġrecommends', 'Ġnominees', 'Ġto', 'Ġthe', 'ĠBoard', 'Ġof', 'ĠDirectors', ',', 'Ġand', 'Ġthe', 'ĠBoard', 'Ġproposes', 'Ġa', 'Ġslate', 'Ġof', 'Ġnominees', 'Ġto', 'Ġthe', 'Ġstock', 'holders', 'Ġfor', 'Ġelection', '.']
+['Inter', 'public', 's', 'ĠDirectors', 'Ġare', 'Ġelected', 'Ġeach', 'Ġyear', 'Ġby', 'ĠInterpublic', 's', 'Ġstockholders', 'Ġat', 'Ġthe', 'Ġannual', 'Ġmeeting', 'Ġof', 'Ġstockholders', '.', 'ĠInterpublic', 's', 'ĠCorporate', 'ĠGovernance', 'ĠCommittee', 'Ġrecommends', 'Ġnominees', 'Ġto', 'Ġthe', 'ĠBoard', 'Ġof', 'ĠDirectors', ',', 'Ġand', 'Ġthe', 'ĠBoard', 'Ġproposes', 'Ġa', 'Ġslate', 'Ġof', 'Ġnominees', 'Ġto', 'Ġthe', 'Ġstockholders', 'Ġfor', 'Ġelection', '.']
+```
+  + 原始roberta-large与esg-roberta-large对比
+```
+To contribute to climate change mitigation, we actively explore opportunities to support local renewable energy generation. Solar panels are installed at Hang Seng 113 to generate renewable energy.
+
+#原始roberta-large 生成的词表比较泛化
+['green', 'sustainability', 'sustainable', 'energy', 'mitigation', 'renewable', 'solar', 'sustainable', 'green', 'environment', 'clean', 'energy', 'renewables', 'environmental', 'carbon', 'electricity', 'welcome', 'climate', 'zero', 'environment', 'green', 'adaptation', 'wind', 'proactive', 'innovation', 'resilience', 'power', 'positive', 'conservation', 'transparency', 'responsible', 'commitment', 'carbon', 'this', 'solar', 'here', 'greenhouse', 'that', 'inclusive', 'ambition', 'climate', 'resilient', 'awareness', 'support', 'emissions', 'pollution', 'coal', 'global', 'mitigating', 'local', 'opportunity', 'relevant', 'action', 'simple', 'effective', 'important', 'innovative', 'technology', 'efficiency', 'investment', 'key', 'water', 'biomass', 'impact', 'enable', 'future', 'fuel', 'done', 'balance', 'enabling', 'transparent', 'will', 'development', 'infrastructure', 'community', 'help', 'the', 'smart', 'appropriate', 'ecosystem', 'collaborative', 'friendly', 'emission', 'waste', 'power', 'change', 'possible', 'sunshine', 'significant', 'responsibility', 'ambitious', 'solution', 'efficient', 'solutions', 'policy', 'growth', 'recycling', 'act', 'active', 'everywhere']
+
+
+#100w ramdom mask 生成的词表能够精确到energy领域
+['renewable', 'energy', 'electricity', 'wind', 'water', 'clean', 'green', 'biomass', 'solar', 'coal', 'carbon', 'nonrenewable', 'recycled', 'steam', 'power', 'heat', 'lower', 'low', 'conventional', 'biogas', 'hydroelectric', 'photovoltaic', 'heating', 'thermal', 'cleaner', 'wood', 'fuel', 'geothermal', 'recovered', 'zero', 'lighting', 'diagnostics', 'electric', 'paper', 'packaging', 'natural', 'improved', 'cement', 'reduced', 'incineration', 'purchased', 'rainwater', 'energysaving', 'less', 'new', 'material', 'used', 'gas', 'recyclable', 'oil', 'dust', 'emissions', 'more', 'reliable', 'diesel', 'sustainable', 'small', 'tree', 'grid', 'fossil', 'affordable', 'wind', 'hydropower', 'wastewater', 'nuclear', 'installed', 'large', 'generated', 'hydrocarbons', '60', 'household', 'total', 'reusable', 'waste', 'renewable', 'global', 'ghg', 'production', 'travel', 'steel', 'renewables', 'discharged', 'generation', 'cooling', 'hydro', 'economical', 'freshwater', 'petrol', 'equivalent', 'transport', 'current', 'hot', 'exhaust', 'concrete', 'co', 'greenhouse', 'cutting', 'efficiently', 'alternative', 'air']
+```
+4. 针对词表的特征向量
+5. 使用hdbscan对词表进行聚类
+  + 使用预训练好的模型提取sentence embedding以及word embedding
+  + 使用umap进行降维 n_neighbors=15, n_components=5，15
+  + 使用hdbscan进行聚类min_cluster_size=5，10，15
+  + 聚类二维可视化
+  + tsne   距离cos  皮尔森相关系数
 ## 2022/11/23
 1. 使用spacy库Mask 一半数据，需要跑半天时间
 2. 由于机器性能的问题，先在一半的数据，200w条mask文本上进行了训练，需要跑三天时间
@@ -224,17 +292,15 @@ https://aclanthology.org/2022.findings-acl.34.pdf
 [图片]
 
 
-
- 
-
-# Reference
-MDERank: A Masked Document Embedding Rank Approach for Unsupervised Keyphrase Extraction https://aclanthology.org/2022.findings-acl.34.pdf
-zero-shot learning https://joeddav.github.io/blog/2020/05/29/ZSL.html
-
 # Train
 python main2.py --output_dir lzs_test --mask_stratagy random --data_path source_1w --model_name_or_path roberta-large --batch_size 16 --chunk_size 128 --training_size 100 --do_train --do_eval
 
 
 python main2.py --output_dir /home/linzhisheng/esg/mlm/200w_mask --mask_stratagy dynamic --data_path /home/linzhisheng/esg/mlm/source_200w_mask --model_name_or_path roberta-large --batch_size 16 --chunk_size 128 --training_size 100 --do_train --do_eval
 
-python main2.py --output_dir /root/ESG/mlm/200w_mask --mask_stratagy dynamic --data_path /root/ESG/mlm/source_200w_mask --model_name_or_path roberta-large --batch_size 16 --chunk_size 128 --training_size 2000000 --do_train --load_cache
+python main2.py --output_dir /root/ESG/mlm/200w_mask --mask_stratagy dynamic --data_path /root/ESG/mlm/source_mask_80% --model_name_or_path roberta-large --batch_size 16 --chunk_size 128 --training_size 2000000 --do_train --load_cache
+
+nohup python -u main2.py --output_dir /root/ESG/mlm/200w_mask --mask_stratagy dynamic --data_path /home/linzhisheng/esg/mlm/source_mask_80% --model_name_or_path roberta-large --batch_size 64 --chunk_size 128 --training_size 100000 --do_train --do_eval --load_cache > outout.txt &
+
+
+nohup python -u main2.py --output_dir /root/ESG/mlm/esg-100w-model --mask_stratagy random --data_path /root/ESG/mlm/source_mask_80% --model_name_or_path roberta-large --batch_size 60 --chunk_size 128 --training_size 1000000 --do_train --do_eval --load_cache_dir /root/ESG/mlm/lm_datasets_100w --tokenizer_path /root/ESG/mlm/roberta-esg-tokenizer > outout.txt &

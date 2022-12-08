@@ -9,87 +9,30 @@ from flair.embeddings import TransformerDocumentEmbeddings
 import pandas as pd
 import torch
 import numpy as np
+import spacy
+from wordcloud import WordCloud
+nlp = spacy.load('en_core_web_sm')
 
-
-class ZeroShotClassifier:
-
-    def create_zsl_model(self, model_name):
-        """ Create the zero-shot learning model. """
-        self.model = pipeline("zero-shot-classification",
-                              model=model_name, device=0)
-
-    def classify_text(self, text, categories):
-        """
-        Classify text(s) to the pre-defined categories using a
-        zero-shot classification model and return the raw results.
-        """
-        # Classify text using the zero-shot transformers model
-        hypothesis_template = "This text is about {}."
-        result = self.model(text, categories, multi_label=True,
-                            hypothesis_template=hypothesis_template)
-        return result
-
-    def text_labels(self, text, category_dict, cutoff=None):
-        """
-        Classify a text into the pre-defined categories. If cutoff
-        is defined, return only those entries where the score > cutoff
-        """
-        # Run the model on our categories
-        categories = list(category_dict.keys())
-
-        result = (self.classify_text(text, categories))
-        return result
-        # Format as a pandas dataframe and add ESG label
-        # df = pd.DataFrame(result).explode(['labels', 'scores'])
-        # df["ESG"] = df.labels.map(category_dict)
-        # # If a cutoff is provided, filter the dataframe
-        # if cutoff:
-        #     df = df[df.scores.gt(cutoff)].copy()
-        # return df.reset_index(drop=True)
-
-# Define and Create the zero-shot learning model
-
-    # a smaller version: "microsoft/deberta-base-mnli"
-
-
-# tokenizer.save_pretrained('roberta-large')
-# origin_model = AutoModelForMaskedLM.from_pretrained('roberta-large')
-# random_mask_model = AutoModelForMaskedLM.from_pretrained(model_checkpoint)
-# torch.save(random_mask_model.state_dict(), 'lzs_test_save')
-# origin_model.load_state_dict(torch.load('lzs_test_save'))
-# random_mask_model.save
-# origin_model.save_pretrained('./roberta-large2')
-
-# model_name = "microsoft/deberta-v2-xlarge-mnli"
-# candidate_labels = {'environment':'e', 'social':'s', 'company':'g'}
-# ZSC = ZeroShotClassifier()
-# ZSC.create_zsl_model(model_name)
-# classified = ZSC.text_labels(input, candidate_labels)
-# print(f'baseline: {classified}\n')
-# input_list = input.replace(',','').replace('.','').split(' ')
-# input_list = [s.lower() for s in input_list]
-def predict(model, tokenizer, source):
-    print('-----------------------------------')
+def predict(model, tokenizer, source,topk):
+    print(topk)
     TEMPLATES = [
-        # 'The Keyword is <mask>.',
-        # 'The keyword is <mask>.',
-        'In summary, the related word is <mask>.',
-        # 'In summary, the keyword is <mask>.',
-        # '<mask> is the keyword.',
-        'In summary, <mask> is the keyword.',
-        # 'In summary, <mask> is the related word.'
+        '<mask> is the keyphrase. ',
+        '<mask> is the keyword. ',
+        'In summary, <mask> is the keyphrase. ',
+        'In summary, <mask> is the keyword. '
     ]
     average_radio = 0
+    result = {}
+    first = 1
     for input in source:
-        input_list = input.replace(',', '').replace('.', '').split(' ')
-        input_list = [s.lower() for s in input_list]
+        # input_list = input.replace(',', '').replace('.', '').split(' ')
+        # input_list = [s.lower() for s in input_list]
         # print(input_list)
-
-        res_list = []
+        # print(print(input))
         for T in TEMPLATES:
             mask_input = T + input
             inputs = tokenizer(
-                mask_input, return_tensors="pt", truncation=True)
+                mask_input, return_tensors="pt", truncation=True).to(torch.device('cuda:0'))
             # print(inputs)
             token_logits = model(**inputs).logits
             # Find the location of [MASK] and extract its logits
@@ -99,28 +42,31 @@ def predict(model, tokenizer, source):
             mask_token_logits = token_logits[0, mask_token_index, :]
             # Pick the [MASK] candidates with the highest logits
             top_tokens = torch.topk(
-                mask_token_logits, 100, dim=1).indices[0].tolist()
+                mask_token_logits, topk, dim=1).indices[0].tolist()
             # print(top_tokens)
             top_tokens_list = tokenizer.decode(top_tokens).split(' ')
             top_tokens_list.pop(0)
-            top_tokens_list = [s.lower() for s in top_tokens_list]
+            tmp = []
+            for s in top_tokens_list:
+                if s.lower() not in ['this','it','who','which','where','that','the','and']:
+                    tmp.append(s.lower())
+            top_tokens_list = tmp
 
-            intersect = set(input_list) & set(top_tokens_list)
-            average_radio = average_radio + \
-                len(intersect)/len(input_list)/len(source)
+            for token in top_tokens_list:
+                if token in result.keys():
+                    result[token] = result[token] + 1
+                else:
+                    result[token] = 1
+            # intersect = set(input_list) & set(top_tokens_list)
+            # average_radio = average_radio + \
+            #     len(intersect)/len(input_list)/len(source)
             # print(f"{T}:intersect:{intersect}, radio is {len(intersect)/len(input_list)}\n")
-            print(f"{T}:{top_tokens_list}\n")
-
-            # if len(res_list) == 0:
-            #     res_list = top_tokens_list
-            # else:
-            #     tmp = []
-            #     for word in res_list:
-            #         for s in top_tokens_list:
-            #             if word == s:
-            #                 tmp.append(word)
-            #                 break
-            #     res_list = tmp
+            
+            # print(f"{T}:{top_tokens_list}")
+            
+            # for doc in nlp.pipe(top_tokens_list):
+            #     for token in doc:
+            #         print(token.tag_)
             # join_word = ''.join(x + ' ' for x in top_tokens_list)
             # classified = ZSC.text_labels(join_word, candidate_labels)
             # print(f'template:{T} res:{classified}\n')
@@ -133,8 +79,12 @@ def predict(model, tokenizer, source):
             # preds = mask_filler(mask_input)
             # for pred in preds:
             #     print(f">>> {pred['token_str']} >>> score is {pred['score']}")
-    print(f'average:{average_radio}')
-    # print(res_list)
+        # print('\n\n==================================================')
+    # print(f'average:{average_radio}')
+    print(len(result))
+    wordcloud = WordCloud(width=1600, height=1600,background_color="white",max_words = 10000).generate_from_frequencies(result)
+    wordcloud.to_file(f'wordcloud-random{topk}.png')
+    print(f'top-k is {topk}, res is: {sorted(result.items(), key = lambda x:x[1],reverse = True)[:1000]}')
     # using key bert
     # hf_model = pipeline("feature-extraction", model=model, tokenizer = tokenizer)
     # kw_model = KeyBERT(model = hf_model)
@@ -145,19 +95,26 @@ def predict(model, tokenizer, source):
 
 
 def test_predict():
-    model_checkpoint = "esg-100w-model"
-    local = './200w_mask_80'
     esg_tokenizer = AutoTokenizer.from_pretrained('roberta-esg-tokenizer')
     ori_tokenizer = AutoTokenizer.from_pretrained('roberta-large')
-    source = pd.read_csv('source_all_english', nrows=100)
-    input = ["Interpublics Directors are elected each year by Interpublics stockholders at the annual meeting of stockholders. Interpublics Corporate Governance Committee recommends nominees to the Board of Directors, and the Board proposes a slate of nominees to the stockholders for election."]
-    input.append('To contribute to climate change mitigation, we actively explore opportunities to support local renewable energy generation. Solar panels are installed at Hang Seng 113 to generate renewable energy.')
+    source = pd.read_csv('source_all_english', nrows=100000)
+    source = source[40000:41000]
+    input = []
+    input.append("Interpublics Directors are elected each year by Interpublics stockholders at the annual meeting of stockholders. Interpublics Corporate Governance Committee recommends nominees to the Board of Directors, and the Board proposes a slate of nominees to the stockholders for election.")
+    # input.append('To contribute to climate change mitigation, we actively explore opportunities to support local renewable energy generation. Solar panels are installed at Hang Seng 113 to generate renewable energy.')
     # input = source['Abstract'].tolist()
     # model = AutoModelForMaskedLM.from_pretrained(local)
-    origin_model = AutoModelForMaskedLM.from_pretrained('roberta-large')
-    random_mask_model = AutoModelForMaskedLM.from_pretrained(model_checkpoint)
-    predict(origin_model, ori_tokenizer, input)
-    predict(random_mask_model, esg_tokenizer, input)
+    origin_model = AutoModelForMaskedLM.from_pretrained('roberta-large').to(torch.device('cuda:0'))
+    # random_mask_model = AutoModelForMaskedLM.from_pretrained('esg-roberta-random-model').to(torch.device('cuda:0'))
+    # dynamic_mask_model = AutoModelForMaskedLM.from_pretrained('esg-roberta-dynamic-model').to(torch.device('cuda:0'))
+    # predict(origin_model, ori_tokenizer, input)
+    # for i in range(3):
+    #     predict(origin_model, ori_tokenizer, input, 100*pow(10,i))
+        
+    for i in range(3):
+        predict(origin_model, ori_tokenizer, input, 100*pow(10,i))
+
+
     # predict(model)
 
 

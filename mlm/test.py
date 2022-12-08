@@ -14,8 +14,9 @@
 import pandas as pd
 from transformers import AutoTokenizer
 import random
+from datasets import load_from_disk
 # print('3/2'.isalpha())
-model_checkpoint = 'roberta-large'
+model_checkpoint = 'roberta-esg-tokenizer'
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 # a = {'paid', 'Issued', 'Ordinary', 'crores', 'Particulars', 'up', 'Rupees', 'Authorised', 'Shares'}
 
@@ -45,11 +46,12 @@ tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 # exit(0)
 
 
-esg_dataset = pd.read_csv('/home/linzhisheng/esg/mlm/source_mask_80%', nrows=20000)
+# esg_dataset = pd.read_csv('/home/linzhisheng/esg/mlm/source_mask_80%', nrows=20000)
+esg_dataset = load_from_disk('/home/linzhisheng/esg/dynamic_mask_datasets')
 
 count = 0
-for idx,row in esg_dataset.iterrows():
-    if idx + 1 % 10000 == 0:
+for idx,row in enumerate(esg_dataset):
+    if idx  % 10000 == 0:
         print(idx)
     # print(row['Abstract'])
     # print(row['Label'])

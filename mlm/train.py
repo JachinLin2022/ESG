@@ -329,18 +329,17 @@ def main():
     )
 
     
-    if args.do_eval:
-        eval_results = trainer.evaluate()
-        print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
+    # if args.do_eval:
+    #     eval_results = trainer.evaluate()
+    #     print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
 
     if args.do_train:
         trainer.train()
-
+    trainer.save_model()
     if args.do_eval:
         eval_results = trainer.evaluate()
         print(f">>> Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
 
-    trainer.save_model()
     import os
     os.system('shutdown -s')
 

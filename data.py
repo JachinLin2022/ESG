@@ -41,32 +41,41 @@ def t(text):
             # print((count, token.text))
             if (count, token.text) in mask_set:
                 tmp = random.randint(1,10)
-                if tmp <=15:
+                input_ids = tokenizer(' ' + token.text)['input_ids']
+                if tmp <=8:
                     # print('80%')
                     mask_text = mask_text + ' ' + '<mask>'
-                    input_ids = tokenizer(' ' + token.text)['input_ids']
+                    
                     count_mask = count_mask + 1
                     # print((token.text,input_ids))
                     for i in range(len(input_ids) - 3):
                         # print(token.text)
                         mask_text = mask_text + ' ' + '<mask>'
                         # count_mask = count_mask + 1
-                else:
+                elif tmp == 9:
                     # print('10%')
                     mask_text = mask_text + ' ' + token.text
-                # else:
-                #     # print('10% random word')
-                #     for i in range(len(input_ids) - 2): 
-                        
-                #     # print(doc[r])
-                #         # print(tokenizer.decode(r))
-                        
-                #         while 1:
-                #             r = random.randint(0,len(tokenizer)-1)
-                #             t = tokenizer.decode(r)
-                #             if len(tokenizer.encode(t)) == 3:
-                #                 mask_text = mask_text + tokenizer.decode(r)
-                #                 break
+                else:
+                    # print('10% random word')
+                    # input_ids = tokenizer(' ' + token.text)['input_ids']
+                    if len(input_ids) >= 3:
+                        for i in range(len(input_ids) - 2):
+                            while 1:
+                                ran = random.randint(5,50264)
+                                random_token = tokenizer.convert_ids_to_tokens(ran)
+                                if random_token.find('Ġ') == 0 and len(random_token) >=2 and len(tokenizer(' ' + random_token[1:])['input_ids']) == 3:
+                                    mask_text = mask_text + ' ' + random_token[1:]
+                                    break
+                    else:
+                        # print((len(input_ids),token.text))
+                        mask_text = mask_text + ' ' + token.text
+                    # for i in range(len(input_ids) - 2):      
+                    #     while 1:
+                    #         ran = random.randint(0,50264)
+                    #         random_token = tokenizer.convert_ids_to_tokens(ran)
+                    #         if random_token.find('Ġ') == 0:
+                    #             mask_text = mask_text + ' ' + random_token[1:]
+                    #             break
                         
 
             else:
@@ -79,22 +88,30 @@ def t(text):
     text['Abstract'] = mask_texts
     return text
 
+def check(text):
+    t1 = tokenizer(text['Abstract'])
+    t2 = tokenizer(text['Label'])
+    if len(t1['input_ids']) != len(t2['input_ids']):
+        print(text)
+        
 def dynamic_mask():
     # data = load_from_disk('C:\\Users\\Jachin\\Downloads\\esg_datasets_all')
     data = load_dataset('csv', data_files='mlm/source_all_english')
     train = data['train']
     # print(train[0])
-    train = train.map(t,batched=True,batch_size=1000)
+    train = train.map(t,batched=True,batch_size=1000,num_proc=16)
     # train = train.add_column('Mask', train['Label'])
     # train['Mask'][0] = '12312'
     # train['Label'][0] = '412123'
     
+    
+    train.map(check,batched=True,batch_size=1000,num_proc=16)
     print(train[0])
-    train.save_to_disk('dynamic_mask_datasets')
+    train.save_to_disk('dynamic_mask_80_10_10_datasets')
 def preprocess():
     from datasets import load_dataset
-    esg_dataset = load_from_disk('dynamic_mask_datasets')
-    # esg_dataset = esg_dataset.select(range(2000000))
+    esg_dataset = load_from_disk('dynamic_mask_80_10_10_datasets')
+    # esg_dataset = esg_dataset.select(range(100000))
     print(esg_dataset)
     
     from transformers import AutoTokenizer
@@ -103,6 +120,8 @@ def preprocess():
     def tokenize_function(examples):
         result = tokenizer(examples["Abstract"])
         label = tokenizer(examples["Label"])
+        # if len(result['input_ids']) != len(label['input_ids']):
+        #     return
         result['labels'] = label['input_ids']
         # if args.mask_stratagy == 'dynamic':
         #     label = tokenizer(examples["Label"])            
@@ -113,7 +132,7 @@ def preprocess():
     # if args.mask_stratagy == 'dynamic':
     #     remove_columns.append('Label')
     tokenized_datasets = esg_dataset.map(
-        tokenize_function, batched=True, remove_columns = remove_columns
+        tokenize_function, batched=True, remove_columns = remove_columns,num_proc = 16
     )
     print(tokenized_datasets)
     chunk_size = 128
@@ -133,8 +152,8 @@ def preprocess():
         # if args.mask_stratagy != 'dynamic':
         #     result["labels"] = result["input_ids"].copy()
         return result
-    lm_datasets = tokenized_datasets.map(group_texts, batched=True)
-    lm_datasets.save_to_disk('mask_datasets_all')
+    lm_datasets = tokenized_datasets.map(group_texts, batched=True, num_proc=16)
+    lm_datasets.save_to_disk('mask_datasets_80_10_10_all')
     print(lm_datasets)
 # def split(source)
 #     from datasets import load_from_disk
@@ -145,6 +164,7 @@ def preprocess():
 #     print(downsampled_dataset)
 def main():
     preprocess()
+    # dynamic_mask()
 
 if __name__ == '__main__':
     main()

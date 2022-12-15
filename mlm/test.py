@@ -47,24 +47,37 @@ tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
 
 # esg_dataset = pd.read_csv('/home/linzhisheng/esg/mlm/source_mask_80%', nrows=20000)
-esg_dataset = load_from_disk('/home/linzhisheng/esg/dynamic_mask_datasets')
+esg_dataset = load_from_disk('/home/linzhisheng/esg/dynamic_mask_80_10_10_datasets_ttt')
 
-count = 0
-for idx,row in enumerate(esg_dataset):
-    if idx  % 10000 == 0:
-        print(idx)
-    # print(row['Abstract'])
-    # print(row['Label'])
-    t1 = tokenizer(row['Abstract'])
-    t2 = tokenizer(row['Label'])
+
+def check(text):
+    t1 = tokenizer(text['Abstract'])
+    t2 = tokenizer(text['Label'])
     if len(t1['input_ids']) != len(t2['input_ids']):
-        print(idx)
-        print(t1['input_ids'])
-        print(t2['input_ids'])
-        # print(row['Abstract'])
-        # print(row['Label'])
-        print(tokenizer.decode(t1['input_ids']))
-        print(tokenizer.decode(t2['input_ids']))
-        print(len(tokenizer(row['Abstract'])['input_ids']))
-        print(len(tokenizer(row['Label'])['input_ids']))
-        break
+        print(text)
+count = 0
+esg_dataset.map(check,batched=False, num_proc=16)
+
+
+# for idx,row in enumerate(esg_dataset):
+#     if idx  % 10000 == 0:
+#         print(idx)
+#     # print(row['Abstract'])
+#     # print(row['Label'])
+#     t1 = tokenizer(row['Abstract'])
+#     t2 = tokenizer(row['Label'])
+#     if len(t1['input_ids']) != len(t2['input_ids']):
+#         print(idx)
+#         print(t1['input_ids'])
+#         print(t2['input_ids'])
+#         # print(row['Abstract'])
+#         # print(row['Label'])
+#         # inter = set(tokenizer.decode(t1['input_ids']).split(' '))&set(tokenizer.decode(t2['input_ids']).split(' '))
+        
+#         # print(set(tokenizer.decode(t1['input_ids']).split(' ')) - set(inter))
+#         # print(set(tokenizer.decode(t2['input_ids']).split(' ')) - set(inter))
+#         print(tokenizer.decode(t1['input_ids']))
+#         print(tokenizer.decode(t2['input_ids']))
+#         print(len(t1['input_ids']))
+#         print(len(t2['input_ids']))
+#         # break

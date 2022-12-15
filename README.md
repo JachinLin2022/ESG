@@ -1,4 +1,5 @@
 # Update
+
 ## Reference
 1. NLP预训练中的mask方式总结 https://zhuanlan.zhihu.com/p/434672623
 2. MDERank: A Masked Document Embedding Rank Approach for Unsupervised Keyphrase Extraction https://aclanthology.org/2022.findings-acl.34.pdf
@@ -6,6 +7,21 @@
 4. FinBERT: Financial Sentiment Analysis with Pre-trained Language Models https://arxiv.org/pdf/1908.10063.pdf
 5. SCI BERT: A Pretrained Language Model for Scientific Text  https://arxiv.org/pdf/1903.10676.pdf
 6. Domain-Specific BERT Models https://mccormickml.com/2020/06/22/domain-specific-bert-tutorial/#3-comparing-scibert-and-bert
+
+## 2022/12/15
+1. 后续方案讨论
+  + 关键词信息问答，如输入emisstion ，模型输出排放量相关的数字，需要使用GPT或者T5等基于生成式任务的预训练模型并微调
+  + 使用词表进行分类，计算词表中单词与该句子标签的距离，使用第三方模型得到word embedding计算距离
+2. 完成基于词性mask的模型训练
+  + 基于词性mask 80%，20%不变
+  + 基于词性mask 80%，10%不变，10%随机替换
+3. 模型对比
+  + 原始模型
+  + random-mask
+  + fin-bert
+  + 基于词性mask 80%，20%不变
+  + 基于词性mask 80%，10%不变，10%随机替换
+
 ## 2022/12/8
 1. 完成全量数据random mask训练
 2. Template对比选择

@@ -13,13 +13,17 @@ import spacy
 from wordcloud import WordCloud
 nlp = spacy.load('en_core_web_sm')
 
-def predict(model, tokenizer, source,topk):
+def predict(model, tokenizer, source,topk, name):
     print(topk)
+    if name.find('finbert') >= 0:
+        mask_token  = '[MASK]'
+    else:
+        mask_token  = '<mask>'
     TEMPLATES = [
-        '<mask> is the keyphrase. ',
-        '<mask> is the keyword. ',
-        'In summary, <mask> is the keyphrase. ',
-        'In summary, <mask> is the keyword. '
+        f'{mask_token} is the keyphrase. ',
+        f'{mask_token} is the keyword. ',
+        f'In summary, {mask_token} is the keyphrase. ',
+        f'In summary, {mask_token} is the keyword. '
     ]
     average_radio = 0
     result = {}
@@ -45,10 +49,10 @@ def predict(model, tokenizer, source,topk):
                 mask_token_logits, topk, dim=1).indices[0].tolist()
             # print(top_tokens)
             top_tokens_list = tokenizer.decode(top_tokens).split(' ')
-            top_tokens_list.pop(0)
+            # top_tokens_list.pop(0)
             tmp = []
             for s in top_tokens_list:
-                if s.lower() not in ['this','it','who','which','where','that','the','and']:
+                if s.lower() not in ['this','it','who','which','where','that','the','and','mwh','kwh']:
                     tmp.append(s.lower())
             top_tokens_list = tmp
 
@@ -83,7 +87,7 @@ def predict(model, tokenizer, source,topk):
     # print(f'average:{average_radio}')
     print(len(result))
     wordcloud = WordCloud(width=1600, height=1600,background_color="white",max_words = 10000).generate_from_frequencies(result)
-    wordcloud.to_file(f'wordcloud-random{topk}.png')
+    wordcloud.to_file(f'wordcloud/{name}{topk}.png')
     print(f'top-k is {topk}, res is: {sorted(result.items(), key = lambda x:x[1],reverse = True)[:1000]}')
     # using key bert
     # hf_model = pipeline("feature-extraction", model=model, tokenizer = tokenizer)
@@ -97,23 +101,31 @@ def predict(model, tokenizer, source,topk):
 def test_predict():
     esg_tokenizer = AutoTokenizer.from_pretrained('roberta-esg-tokenizer')
     ori_tokenizer = AutoTokenizer.from_pretrained('roberta-large')
-    source = pd.read_csv('source_all_english', nrows=100000)
-    source = source[40000:41000]
+    source = pd.read_csv('source_all_english', nrows=10000)
+    # source = source[40000:41000]
     input = []
-    input.append("Interpublics Directors are elected each year by Interpublics stockholders at the annual meeting of stockholders. Interpublics Corporate Governance Committee recommends nominees to the Board of Directors, and the Board proposes a slate of nominees to the stockholders for election.")
-    # input.append('To contribute to climate change mitigation, we actively explore opportunities to support local renewable energy generation. Solar panels are installed at Hang Seng 113 to generate renewable energy.')
-    # input = source['Abstract'].tolist()
-    # model = AutoModelForMaskedLM.from_pretrained(local)
-    origin_model = AutoModelForMaskedLM.from_pretrained('roberta-large').to(torch.device('cuda:0'))
-    # random_mask_model = AutoModelForMaskedLM.from_pretrained('esg-roberta-random-model').to(torch.device('cuda:0'))
-    # dynamic_mask_model = AutoModelForMaskedLM.from_pretrained('esg-roberta-dynamic-model').to(torch.device('cuda:0'))
-    # predict(origin_model, ori_tokenizer, input)
-    # for i in range(3):
-    #     predict(origin_model, ori_tokenizer, input, 100*pow(10,i))
-        
-    for i in range(3):
-        predict(origin_model, ori_tokenizer, input, 100*pow(10,i))
-
+    # input.append("Interpublics Directors are elected each year by Interpublics stockholders at the annual meeting of stockholders. Interpublics Corporate Governance Committee recommends nominees to the Board of Directors, and the Board proposes a slate of nominees to the stockholders for election.")
+    input.append('To contribute to climate change mitigation, we actively explore opportunities to support local renewable energy generation. Solar panels are installed at Hang Seng 113 to generate renewable energy.')
+    input = source['Abstract'].tolist()
+    
+    # for name in ['esg-roberta-dynamic_80_10_10-model','esg-roberta-random-model', 'esg-roberta-dynamic_80_ROOT-model']:
+    #     model = AutoModelForMaskedLM.from_pretrained(name).to(torch.device('cuda:0'))
+    #     # origin_model = AutoModelForMaskedLM.from_pretrained('roberta-large').to(torch.device('cuda:0'))
+    #     # random_mask_model = AutoModelForMaskedLM.from_pretrained('esg-roberta-random-model').to(torch.device('cuda:0'))
+    #     # dynamic_mask_model = AutoModelForMaskedLM.from_pretrained('esg-roberta-dynamic-model').to(torch.device('cuda:0'))
+    #     # predict(origin_model, ori_tokenizer, input)
+    #     # for i in range(3):
+    #     #     predict(origin_model, ori_tokenizer, input, 100*pow(10,i))
+    #     # print(input[0])
+    #     # model = AutoModelForMaskedLM.from_pretrained('yiyanghkust/finbert-pretrain').to(torch.device('cuda:0'))
+    #     # t = AutoTokenizer.from_pretrained('yiyanghkust/finbert-pretrain',model_max_length=512)
+    #     for i in range(2):
+    #         predict(model, esg_tokenizer, input, 100*pow(10,i), name)
+            
+    model = AutoModelForMaskedLM.from_pretrained('yiyanghkust/finbert-pretrain').to(torch.device('cuda:0'))
+    t = AutoTokenizer.from_pretrained('yiyanghkust/finbert-pretrain',model_max_length=512)
+    for i in range(2):
+        predict(model, t, input, 100*pow(10,i), 'finbert')
 
     # predict(model)
 

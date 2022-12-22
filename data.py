@@ -23,7 +23,11 @@ def t(text):
             if token.dep_ in ['nsubjpass','nsubj', 'dobj', 'amod', 'ROOT'] and token.tag_ not in ['NFP']:
                 # print('zzzz', (token.text, token.head.text, token.dep_, token.tag_))
                 if token.text.isalpha():
-                    mask_set.add((count,token.text))
+                    # mask_set.add((count,token.text))
+                    if count >0 and count < len(doc)-1:
+                        # print((count,token.text))
+                        mask_set.add((count-1,doc[count-1].text))
+                        mask_set.add((count+1,doc[count+1].text))
                 # if token.head.text.isalpha():
                 #     mask_set.add(token.head.text)
             count = count + 1
@@ -107,10 +111,10 @@ def dynamic_mask():
     
     train.map(check,batched=True,batch_size=1000,num_proc=16)
     print(train[0])
-    train.save_to_disk('dynamic_mask_80_10_10_datasets')
+    train.save_to_disk('dynamic_mask_middle_datasets')
 def preprocess():
     from datasets import load_dataset
-    esg_dataset = load_from_disk('dynamic_mask_80_10_10_datasets')
+    esg_dataset = load_from_disk('dynamic_mask_middle_datasets')
     # esg_dataset = esg_dataset.select(range(100000))
     print(esg_dataset)
     
@@ -153,7 +157,7 @@ def preprocess():
         #     result["labels"] = result["input_ids"].copy()
         return result
     lm_datasets = tokenized_datasets.map(group_texts, batched=True, num_proc=16)
-    lm_datasets.save_to_disk('mask_datasets_80_10_10_all')
+    lm_datasets.save_to_disk('mask_datasets_middle_all')
     print(lm_datasets)
 # def split(source)
 #     from datasets import load_from_disk

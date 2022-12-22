@@ -10,7 +10,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
 output = '/home/linzhisheng/esg/mlm/source_mask_80%'
 # esg_dataset = load_dataset("csv", data_files='source_1w')
-esg_dataset = pd.read_csv('/home/linzhisheng/esg/mlm/source_all_format', nrows=2000000)
+esg_dataset = pd.read_csv('/home/linzhisheng/esg/mlm/source_all_english', nrows=1)
 esg_dataset['Label'] = esg_dataset['Abstract']
 print(esg_dataset)
 
@@ -28,6 +28,7 @@ for idx,row in esg_dataset.iterrows():
     doc = nlp(text)
     mask_set = set()
     count = 0
+    print(len(doc))
     for token in doc:
         # print((token.text, token.head.text, token.dep_, token.tag_))
         # if token.tag_ in ['JJ']:
@@ -36,7 +37,11 @@ for idx,row in esg_dataset.iterrows():
         if token.dep_ in ['nsubjpass','nsubj', 'dobj', 'amod'] and token.tag_ not in ['NFP']:
             # print('zzzz', (token.text, token.head.text, token.dep_, token.tag_))
             if token.text.isalpha():
-                mask_set.add((count,token.text))
+                # mask_set.add((count,token.text))
+                if count >0 and count < len(doc):
+                    print((count,token.text))
+                    mask_set.add((count-1,doc[count-1].text))
+                    mask_set.add((count+1,doc[count+1].text))
             # if token.head.text.isalpha():
             #     mask_set.add(token.head.text)
         count = count + 1
@@ -54,7 +59,7 @@ for idx,row in esg_dataset.iterrows():
     # for ent in doc.ents:
     #     if ent.label_ in ['ORG']:
     #         print((ent.text, ent.start_char, ent.end_char, ent.label_))
-
+    print(mask_set)
     mask_text = ''
     label_test = ''
     count_mask = 0
@@ -104,6 +109,7 @@ for idx,row in esg_dataset.iterrows():
     # print(mask_text)
     row['Abstract'] = mask_text
     row['Label'] = label_test
+    print(mask_text)
     # print(count_mask/len(doc))
     # print(tokenizer(mask_text))
     # print(tokenizer(label_test))
@@ -111,4 +117,4 @@ for idx,row in esg_dataset.iterrows():
 
     # break
 
-esg_dataset.to_csv(output, index=False)
+# esg_dataset.to_csv(output, index=False)

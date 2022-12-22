@@ -11,28 +11,34 @@ import torch
 import numpy as np
 import spacy
 from wordcloud import WordCloud
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+eval_model = SentenceTransformer('bert-base-nli-mean-tokens').to(torch.device('cuda:1'))
 nlp = spacy.load('en_core_web_sm')
 
-def predict(model, tokenizer, source,topk, name):
+def predict(model, tokenizer, source,topk, name, label, mrr = False, fre = False):
     print(topk)
     if name.find('finbert') >= 0:
         mask_token  = '[MASK]'
     else:
         mask_token  = '<mask>'
     TEMPLATES = [
-        f'{mask_token} is the keyphrase. ',
+        # f'{mask_token} is the keyphrase. ',
         f'{mask_token} is the keyword. ',
-        f'In summary, {mask_token} is the keyphrase. ',
-        f'In summary, {mask_token} is the keyword. '
+        # f'In summary, {mask_token} is the keyphrase. ',
+        # f'In summary, {mask_token} is the keyword. '
     ]
     average_radio = 0
-    result = {}
+    
     first = 1
-    for input in source:
+    ave_res = 0
+    for idx, input in enumerate(source):
+        result = {}
         # input_list = input.replace(',', '').replace('.', '').split(' ')
         # input_list = [s.lower() for s in input_list]
         # print(input_list)
         # print(print(input))
+        # print(label[idx])
         for T in TEMPLATES:
             mask_input = T + input
             inputs = tokenizer(
@@ -52,7 +58,7 @@ def predict(model, tokenizer, source,topk, name):
             # top_tokens_list.pop(0)
             tmp = []
             for s in top_tokens_list:
-                if s.lower() not in ['this','it','who','which','where','that','the','and','mwh','kwh']:
+                if s.lower() not in ['this','it','who','which','where','that','the','and','mwh','kwh','']:
                     tmp.append(s.lower())
             top_tokens_list = tmp
 
@@ -67,7 +73,21 @@ def predict(model, tokenizer, source,topk, name):
             # print(f"{T}:intersect:{intersect}, radio is {len(intersect)/len(input_list)}\n")
             
             # print(f"{T}:{top_tokens_list}")
-            
+            if fre == False:
+                # print((idx, label))
+                # print((idx, label[idx]))
+                top_tokens_list.insert(0,label[idx].lower())
+                sentence_embeddings = eval_model.encode(top_tokens_list)
+                res = cosine_similarity(
+                    [sentence_embeddings[0]],
+                    sentence_embeddings[1:])
+                if mrr == False:
+                    ave_res = ave_res + res.sum()/(len(top_tokens_list) - 1)
+                else:
+                    for index,sim in enumerate(res[0]):
+                        # print((1/(idx+1)),sim)
+                        res[0][index] = sim*(1/(index+1))
+                    ave_res = ave_res + res.sum()
             # for doc in nlp.pipe(top_tokens_list):
             #     for token in doc:
             #         print(token.tag_)
@@ -84,30 +104,53 @@ def predict(model, tokenizer, source,topk, name):
             # for pred in preds:
             #     print(f">>> {pred['token_str']} >>> score is {pred['score']}")
         # print('\n\n==================================================')
+        if fre == True:
+            new = sorted(result.items(), key = lambda x:x[1],reverse = True)[:topk]
+            top_token = []
+            for kk in new:
+                top_token.append(kk[0])
+            top_token.insert(0,label[idx].lower())
+            sentence_embeddings = eval_model.encode(top_token)
+            res = cosine_similarity(
+                [sentence_embeddings[0]],
+                sentence_embeddings[1:])
+            if mrr == False:
+                ave_res = ave_res + res.sum()/(len(top_token) - 1)
+            else:
+                for index,sim in enumerate(res[0]):
+                    # print((1/(idx+1)),sim)
+                    res[0][index] = sim*(1/(index+1))
+                ave_res = ave_res + res.sum()
+            # print(f'top-k is {topk}, res is: {new}')
     # print(f'average:{average_radio}')
-    print(len(result))
-    wordcloud = WordCloud(width=1600, height=1600,background_color="white",max_words = 10000).generate_from_frequencies(result)
-    wordcloud.to_file(f'wordcloud/{name}{topk}.png')
-    print(f'top-k is {topk}, res is: {sorted(result.items(), key = lambda x:x[1],reverse = True)[:1000]}')
-    # using key bert
-    # hf_model = pipeline("feature-extraction", model=model, tokenizer = tokenizer)
-    # kw_model = KeyBERT(model = hf_model)
+    
+        
+        
+        
+    if fre == False:    
+        print(ave_res/(len(source)*len(TEMPLATES)))
+    else:
+        print(ave_res/len(source))
+    # print(len(result))
+    # wordcloud = WordCloud(width=1600, height=1600,background_color="white",max_words = 10000).generate_from_frequencies(result)
+    # wordcloud.to_file(f'wordcloud/{name}{topk}.png')
+    # print(f'top-k is {topk}, res is: {sorted(result.items(), key = lambda x:x[1],reverse = True)[:1000]}')
 
-    # keywords = kw_model.extract_keywords(input, top_n = 100)
-    # print(keywords)
-    # print(len(keywords))
 
 
 def test_predict():
     esg_tokenizer = AutoTokenizer.from_pretrained('roberta-esg-tokenizer')
     ori_tokenizer = AutoTokenizer.from_pretrained('roberta-large')
-    source = pd.read_csv('source_all_english', nrows=10000)
-    # source = source[40000:41000]
+    t = AutoTokenizer.from_pretrained('yiyanghkust/finbert-pretrain',model_max_length=512)
+    source = pd.read_csv('lable_data.csv', nrows=1000)
+    # source = source[4000:5000]
     input = []
     # input.append("Interpublics Directors are elected each year by Interpublics stockholders at the annual meeting of stockholders. Interpublics Corporate Governance Committee recommends nominees to the Board of Directors, and the Board proposes a slate of nominees to the stockholders for election.")
-    input.append('To contribute to climate change mitigation, we actively explore opportunities to support local renewable energy generation. Solar panels are installed at Hang Seng 113 to generate renewable energy.')
+    # input.append('To contribute to climate change mitigation, we actively explore opportunities to support local renewable energy generation. Solar panels are installed at Hang Seng 113 to generate renewable energy.')
     input = source['Abstract'].tolist()
-    
+    label = source['Path'].tolist()
+    print(len(input))
+    # print(label[0])
     # for name in ['esg-roberta-dynamic_80_10_10-model','esg-roberta-random-model', 'esg-roberta-dynamic_80_ROOT-model']:
     #     model = AutoModelForMaskedLM.from_pretrained(name).to(torch.device('cuda:0'))
     #     # origin_model = AutoModelForMaskedLM.from_pretrained('roberta-large').to(torch.device('cuda:0'))
@@ -121,11 +164,28 @@ def test_predict():
     #     # t = AutoTokenizer.from_pretrained('yiyanghkust/finbert-pretrain',model_max_length=512)
     #     for i in range(2):
     #         predict(model, esg_tokenizer, input, 100*pow(10,i), name)
-            
+    # random_mask_model = AutoModelForMaskedLM.from_pretrained('esg-roberta-random-model').to(torch.device('cuda:0'))
+    mrr = False
+    fre = False
+    model = AutoModelForMaskedLM.from_pretrained('roberta-large').to(torch.device('cuda:0'))
+    for i in range(1):
+        predict(model, ori_tokenizer, input, 1000*pow(10,i), 'robert', label, mrr, fre)
+
+    model = AutoModelForMaskedLM.from_pretrained('esg-roberta-random-model').to(torch.device('cuda:0'))
+    for i in range(1):
+        predict(model, esg_tokenizer, input, 1000*pow(10,i), 'robert', label, mrr, fre)
+        
+    model = AutoModelForMaskedLM.from_pretrained('esg-roberta-dynamic_80_10_10-model').to(torch.device('cuda:0'))
+    for i in range(1):
+        predict(model, esg_tokenizer, input, 1000*pow(10,i), 'robert', label, mrr, fre)
+    
+    model = AutoModelForMaskedLM.from_pretrained('esg-roberta-dynamic_middle_ROOT-model').to(torch.device('cuda:0'))
+    for i in range(1):
+        predict(model, ori_tokenizer, input, 1000*pow(10,i), 'robert', label, mrr, fre)
+        
     model = AutoModelForMaskedLM.from_pretrained('yiyanghkust/finbert-pretrain').to(torch.device('cuda:0'))
-    t = AutoTokenizer.from_pretrained('yiyanghkust/finbert-pretrain',model_max_length=512)
-    for i in range(2):
-        predict(model, t, input, 100*pow(10,i), 'finbert')
+    for i in range(1):
+        predict(model, t, input, 1000*pow(10,i), 'finbert', label, mrr, fre)
 
     # predict(model)
 

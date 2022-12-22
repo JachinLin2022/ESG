@@ -7,15 +7,24 @@
 4. FinBERT: Financial Sentiment Analysis with Pre-trained Language Models https://arxiv.org/pdf/1908.10063.pdf
 5. SCI BERT: A Pretrained Language Model for Scientific Text  https://arxiv.org/pdf/1903.10676.pdf
 6. Domain-Specific BERT Models https://mccormickml.com/2020/06/22/domain-specific-bert-tutorial/#3-comparing-scibert-and-bert
+## 2022/12/22
+1. 基于词性mask，mask掉两边单词
+2. 选取第三方模型bert-base-nli-mean-tokens提取word embedding，计算cos相似度。MRR是一个国际上通用的对搜索算法进行评价的机制，即第一个结果匹配，分数为1，第二个匹配分数为0.5，第n个匹配分数为1/n，如果没有匹配的句子分数为0。最终的分数为所有得分之和。
+3. 词表评估实验结果
+  + 基于概率，选取概率最高的前top-n个单词计算相似度，求和取平均
+    （1）引入权重，MRR
+    （2）不引入权重，词表提取部分与下游评价部分分离
+  + 基于词频，选取词频最高的前top-n个单词计算相似度，求和取平均
+
 
 ## 2022/12/15
 1. 后续方案讨论
   + 关键词信息问答，如输入emisstion ，模型输出排放量相关的数字，需要使用GPT或者T5等基于生成式任务的预训练模型并微调
   + 使用词表进行分类，计算词表中单词与该句子标签的距离，使用第三方模型得到word embedding计算距离
-2. 完成基于词性mask的模型训练
+1. 完成基于词性mask的模型训练
   + 基于词性mask 80%，20%不变
   + 基于词性mask 80%，10%不变，10%随机替换
-3. 模型对比
+1. 模型对比
   + 原始模型
   + random-mask
   + fin-bert

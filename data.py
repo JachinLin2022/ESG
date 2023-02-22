@@ -23,11 +23,11 @@ def t(text):
             if token.dep_ in ['nsubjpass','nsubj', 'dobj', 'amod', 'ROOT'] and token.tag_ not in ['NFP']:
                 # print('zzzz', (token.text, token.head.text, token.dep_, token.tag_))
                 if token.text.isalpha():
-                    # mask_set.add((count,token.text))
-                    if count >0 and count < len(doc)-1:
-                        # print((count,token.text))
-                        mask_set.add((count-1,doc[count-1].text))
-                        mask_set.add((count+1,doc[count+1].text))
+                    mask_set.add((count,token.text))
+                    # if count >0 and count < len(doc)-1:
+                    #     # print((count,token.text))
+                    #     mask_set.add((count-1,doc[count-1].text))
+                    #     mask_set.add((count+1,doc[count+1].text))
                 # if token.head.text.isalpha():
                 #     mask_set.add(token.head.text)
             count = count + 1
@@ -101,17 +101,18 @@ def check(text):
 def dynamic_mask():
     # data = load_from_disk('C:\\Users\\Jachin\\Downloads\\esg_datasets_all')
     data = load_dataset('csv', data_files='mlm/source_all_english')
-    train = data['train']
+    train = data['train'].select(range(1000))
     # print(train[0])
     train = train.map(t,batched=True,batch_size=1000,num_proc=16)
     # train = train.add_column('Mask', train['Label'])
     # train['Mask'][0] = '12312'
     # train['Label'][0] = '412123'
+    for i in range(10):
+        print(train[i])
     
-    
-    train.map(check,batched=True,batch_size=1000,num_proc=16)
-    print(train[0])
-    train.save_to_disk('dynamic_mask_middle_datasets')
+    # train.map(check,batched=True,batch_size=1000,num_proc=16)
+    # print(train[0])
+    # train.save_to_disk('dynamic_mask_middle_datasets')
 def preprocess():
     from datasets import load_dataset
     esg_dataset = load_from_disk('dynamic_mask_middle_datasets')
@@ -167,8 +168,8 @@ def preprocess():
 #     downsampled_dataset.save_to_disk('esg_datasets_all')
 #     print(downsampled_dataset)
 def main():
-    preprocess()
-    # dynamic_mask()
+    # preprocess()
+    dynamic_mask()
 
 if __name__ == '__main__':
     main()

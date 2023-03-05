@@ -9,7 +9,7 @@ import numpy as np
 import evaluate
 from tqdm.auto import tqdm
 
-model_checkpoint = "bert-finetuned-esgQA-fine-grained-8-2"
+model_checkpoint = "bert-large-uncased-whole-word-masking-finetuned-squad"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 n_best = 20
 max_answer_length = 30

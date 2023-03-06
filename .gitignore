@@ -4,3 +4,4 @@ pet/**
 mlm/**
 QA/**
 !**.py
+!QA/process_data.ipynb

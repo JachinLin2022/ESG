@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
 from transformers import pipeline
 from transformers import AutoTokenizer
 from transformers import AutoModelForQuestionAnswering
@@ -40,7 +40,7 @@ class ESG():
             num_train_epochs=3,
             weight_decay=0.01,
             per_device_train_batch_size=6,
-            per_device_eval_batch_size=256,
+            per_device_eval_batch_size=200,
             fp16=True,
             # no_cuda=True,
             push_to_hub=False,
@@ -74,7 +74,7 @@ class ESG():
         example_id = example["id"]
         context = example["context"]
         answers = []
-        
+        score = []
         
         for feature_index in self.example_to_features[example_id]:
             # print((feature_index,tokenizer.decode(eval_set["input_ids"][feature_index])))
@@ -98,6 +98,7 @@ class ESG():
                         continue
                     ans = context[offsets[start_index][0]: offsets[end_index][1]]
                     if re.search(r'\d', ans):
+                        score.append(start_logit[start_index] + end_logit[end_index])
                         answers.append(
                             {
                                 # "id": len(answers),
@@ -111,8 +112,14 @@ class ESG():
                     # print((context[offsets[start_index][0] : offsets[end_index][1]], start_logit[start_index] + end_logit[end_index]))
 
         # best_answer = max(answers, key=lambda x: x["logit_score"])
+        from torch.nn.functional import softmax
+        score = torch.FloatTensor(score)
+        prob = softmax(score,dim=-1)
+        for i in range(len(answers)):
+            answers[i]['prob'] = prob[i].item()
+            
         top_20_answers = heapq.nlargest(
-            self.top_n, answers, key=lambda s: s['logit_score'])
+            self.top_n, answers, key=lambda s: s['prob'])
         # predicted_answers.append(
         #     {"id": example_id, "prediction_text": best_answer["text"]})
         example['answer_set'] = top_20_answers
@@ -136,7 +143,7 @@ class ESG():
         
 
 
-model_checkpoint = "/home/linzhisheng/esg/QA/bert-finetuned-esgQA-fine-grained-8-2"
+model_checkpoint = "/home/linzhisheng/esg/QA/esg-QA"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
 max_length = 384
@@ -148,8 +155,8 @@ id = 0
 def add_question_to_get_fiture(example):
     global id
     id = id + 1
-    example['question'] = "How much {}?".format(example['path'])
-    example['context'] = example['text']
+    example['question'] = "How much {}?".format(str(example['path']))
+    example['context'] = str(example['text'])
     # example['answers'] = {
     #     'text': [example['value']],
     #     'answer_start': [example['text'].find(example['value'])]
@@ -258,7 +265,7 @@ def question(eval_firuge_set, template):
 
 extractor = ESG(model_checkpoint)
 
-test_data = load_dataset('csv', data_files = '/home/linzhisheng/esg/QA/data/report_eng.csv')
+test_data = load_dataset('csv', data_files = '/home/linzhisheng/esg/QA/report_all_eng.csv')
 test_data = test_data['train']
 
 
@@ -273,9 +280,9 @@ eval_set = small_eval_set.map(
 )
 print((len(small_eval_set),len(eval_set)))
 
-eval_firuge_set = extractor.get_fiture_set(small_eval_set, eval_set, 100)
+eval_firuge_set = extractor.get_fiture_set(small_eval_set, eval_set, 1000)
 eval_firuge_set = eval_firuge_set.remove_columns('context')
-eval_firuge_set.to_csv('data/figure_100.csv',index=False)
+eval_firuge_set.to_csv('figure_1000_prob_all.csv',index=False)
 
 # max_length = max_length + 50
 # extractor.update_model('bert-large-uncased-whole-word-masking-finetuned-squad')

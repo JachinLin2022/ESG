@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
 from transformers import pipeline
 from transformers import AutoTokenizer
 from transformers import AutoModelForQuestionAnswering
@@ -40,7 +40,7 @@ class ESG():
             num_train_epochs=3,
             weight_decay=0.01,
             per_device_train_batch_size=6,
-            per_device_eval_batch_size=200,
+            per_device_eval_batch_size=1250,
             fp16=True,
             # no_cuda=True,
             push_to_hub=False,
@@ -136,7 +136,7 @@ class ESG():
         self.example_to_features = collections.defaultdict(list)
         for idx, feature in enumerate(eval_set):
             self.example_to_features[feature["example_id"]].append(idx)
-        
+        print('=============[get_model_result]==============')
         firuge_set = small_eval_set.map(self.get_model_result, batched=False)
         return firuge_set
         
@@ -146,8 +146,8 @@ class ESG():
 model_checkpoint = "/home/linzhisheng/esg/QA/esg-QA"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
-max_length = 384
-stride = 128
+max_length = 128
+stride = 32
 
 id = 0
 
@@ -277,12 +277,22 @@ eval_set = small_eval_set.map(
     preprocess_validation_examples,
     batched=True,
     remove_columns=small_eval_set.column_names,
+    num_proc=32
 )
+
+# small_eval_set.save_to_disk('small_eval_set')
+# eval_set.save_to_disk('eval_set')
+
+# small_eval_set = load_from_disk('small_eval_set')
+# eval_set = load_from_disk('eval_set')
+
+
+
 print((len(small_eval_set),len(eval_set)))
 
 eval_firuge_set = extractor.get_fiture_set(small_eval_set, eval_set, 1000)
 eval_firuge_set = eval_firuge_set.remove_columns('context')
-eval_firuge_set.to_csv('figure_1000_prob_all.csv',index=False)
+eval_firuge_set.to_csv('figure_1000_prob_all_128_32.csv',index=False)
 
 # max_length = max_length + 50
 # extractor.update_model('bert-large-uncased-whole-word-masking-finetuned-squad')

@@ -102,24 +102,24 @@ def get_all_test_full_report():
 
     
 def process_report():
-    reports = pd.read_csv('/home/linzhisheng/esg/QA/report_all.csv')
+    reports = pd.read_csv('/home/linzhisheng/esg/QA/report_all_new.csv')
     print(reports)
     reports_no_eng = reports[reports['text'].apply(lambda x: is_chinese(x) == True)]
     reports = reports[reports['text'].apply(lambda x: is_chinese(x) == False)]
     # reports = reports.rename(columns={'report':'text'})
     print(reports)
-    reports.to_csv('report_all_eng.csv')
-    reports_no_eng.to_csv('report_all_no_eng.csv')
+    reports.to_csv('new/report_all_eng.csv')
+    reports_no_eng.to_csv('new/report_all_no_eng.csv')
     print(reports_no_eng)
     
 def get_train_test_csv():
     train_source = pd.read_csv('/home/linzhisheng/esg/QA/train_fine_grained_index.csv')
-    report_valid = pd.read_csv('/home/linzhisheng/esg/QA/report_all_figure.csv')
+    report_valid = pd.read_csv('/home/linzhisheng/esg/QA/new/report_all_figure.csv')
     print(train_source)
     train_data = train_source[train_source['Unnamed: 0'].apply(lambda x: x not in report_valid['Unnamed: 0.1'].values)]
     test_data = train_source[train_source['Unnamed: 0'].apply(lambda x: x in report_valid['Unnamed: 0.1'].values)]
-    train_data.to_csv('train.csv',index=False)
-    test_data.to_csv('test.csv',index=False)
+    train_data.to_csv('new/train.csv',index=False)
+    test_data.to_csv('new/test.csv',index=False)
     print(train_data)
     print(test_data)
     # print(7 in report_valid['Unnamed: 0.1'].values)

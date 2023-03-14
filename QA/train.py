@@ -30,15 +30,25 @@ def add_question(example):
 
 
 
-raw_datasets = load_dataset('csv', data_files='data/train_fine_grained.csv')
-raw_datasets['train'] = raw_datasets['train'].map(add_question,remove_columns=['value','type','path','text'])
+# raw_datasets = load_dataset('csv', data_files='data/train_fine_grained_url.csv')
+# raw_datasets['train'] = raw_datasets['train'].map(add_question,remove_columns=['value','type','path','text','url'])
 
 
-raw_datasets = raw_datasets['train'].train_test_split(test_size=0.2,seed=42)
+# raw_datasets = raw_datasets['train'].train_test_split(test_size=0.2,seed=42)
+# print(raw_datasets['train'][0])
+# print(raw_datasets['test'][0])
+# print(raw_datasets)
+raw_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/new/train.csv')
+test_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/new/test.csv')
+raw_datasets['train'] = raw_datasets['train'].map(add_question,remove_columns=raw_datasets['train'].column_names)
+test_datasets['test'] = test_datasets['train'].map(add_question,remove_columns=test_datasets['train'].column_names)
+raw_datasets['test'] = test_datasets['test']
+
 print(raw_datasets['train'][0])
 print(raw_datasets['test'][0])
-print(raw_datasets)
+# print(raw_datasets)
 
+# exit(0)
 max_length = 384
 stride = 128
 
@@ -192,7 +202,7 @@ def compute_metrics(start_logits, end_logits, features, examples):
 
 model = AutoModelForQuestionAnswering.from_pretrained(model_checkpoint)
 args = TrainingArguments(
-    "bert-finetuned-esgQA-fine-grained-8-2",
+    "esg-QA",
     evaluation_strategy="no",
     save_strategy="epoch",
     learning_rate=2e-5,

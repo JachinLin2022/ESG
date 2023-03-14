@@ -9,7 +9,7 @@ import numpy as np
 import evaluate
 from tqdm.auto import tqdm
 
-model_checkpoint = "bert-large-uncased-whole-word-masking-finetuned-squad"
+model_checkpoint = "/home/linzhisheng/esg/QA/esg-QA"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 n_best = 20
 max_answer_length = 30
@@ -36,17 +36,14 @@ def add_question(example):
     return example
 
 
+raw_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/train.csv')
+test_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/test.csv')
+raw_datasets['train'] = raw_datasets['train'].map(add_question,remove_columns=raw_datasets['train'].column_names)
+test_datasets['test'] = test_datasets['train'].map(add_question,remove_columns=test_datasets['train'].column_names)
+raw_datasets['test'] = test_datasets['test']
 
-raw_datasets = load_dataset('csv', data_files='data/test_8_2.csv')
-
-raw_datasets['train'] = raw_datasets['train'].filter(lambda example:example['text'].find('\t')<0 and is_chinese(example['text'])==False)
-raw_datasets['test'] = raw_datasets['train'].map(add_question)
-# raw_datasets['test'] = raw_datasets['test'].select(range(100))
-
-# raw_datasets = raw_datasets['train'].train_test_split(test_size=0.1,seed=42)
-# print(raw_datasets['train'][0])
-# print(raw_datasets['test'][0])
-# print(raw_datasets)
+print(raw_datasets['train'][0])
+print(raw_datasets['test'][0])
 
 max_length = 384
 stride = 128
@@ -216,20 +213,24 @@ def compute_metrics(start_logits, end_logits, features, examples):
     count = 0
     
     for i in range(len(theoretical_answers)):
-        if theoretical_answers[i]['answers']['text'][0] != predicted_answers[i]['prediction_text']:
-            # print((i, raw_datasets['test'][i], theoretical_answers[i]['answers']['text'][0], predicted_answers[i]['prediction_text']))
-            # print(theoretical_answers[i])
+        want = theoretical_answers[i]['answers']['text'][0]
+        get = predicted_answers[i]['prediction_text']
+        if get.find(want) >= 0:
             count = count + 1
-            filter_list.append(str(i+1))
+        # if theoretical_answers[i]['answers']['text'][0] != predicted_answers[i]['prediction_text']:
+            # print((i, theoretical_answers[i]['answers']['text'][0], predicted_answers[i]['prediction_text']))
+            # print(theoretical_answers[i])
+            # count = count + 1
+            # filter_list.append(str(i+1))
             # print('\n')
-    print(count)
+    print(count/len(theoretical_answers))
     return metric.compute(predictions=predicted_answers, references=theoretical_answers)
 
 model = AutoModelForQuestionAnswering.from_pretrained(model_checkpoint)
 
 args = TrainingArguments(
     "bert-finetuned-esgQA-eval",
-    per_device_eval_batch_size=64,
+    per_device_eval_batch_size=256,
     fp16=True,
 
 )
@@ -245,10 +246,13 @@ trainer = Trainer(
 # trainer.save_model()
 print(raw_datasets["test"])
 print(validation_dataset)
+import time
+T1 = time.time()
 predictions, _, _ = trainer.predict(validation_dataset)
 start_logits, end_logits = predictions
 print(compute_metrics(start_logits, end_logits, validation_dataset, raw_datasets["test"]))
-
-print(raw_datasets["test"].filter(lambda example:example['id'] in filter_list))
+T2 = time.time()
+print('程序运行时间:%s毫秒' % ((T2 - T1)))
+# print(raw_datasets["test"].filter(lambda example:example['id'] in filter_list))
 
 

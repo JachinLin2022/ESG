@@ -1,7 +1,10 @@
+**.csv
+**.txt
 data/**
 learn/**
 pet/**
 mlm/**
-QA/**
-!**.py
-!QA/process_data.ipynb
+QA/bert*
+QA/data
+QA/esg*
+QA/new

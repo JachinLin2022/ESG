@@ -1,4 +1,4 @@
-from datasets import load_dataset
+from datasets import *
 from transformers import AutoTokenizer
 import torch
 from transformers import AutoModelForQuestionAnswering
@@ -8,7 +8,7 @@ from transformers import Trainer
 import numpy as np
 import evaluate
 from tqdm.auto import tqdm
-
+disable_caching()
 model_checkpoint = "bert-large-uncased-whole-word-masking-finetuned-squad"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 n_best = 20
@@ -38,8 +38,8 @@ def add_question(example):
 # print(raw_datasets['train'][0])
 # print(raw_datasets['test'][0])
 # print(raw_datasets)
-raw_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/new/train.csv')
-test_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/new/test.csv')
+raw_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/new/train_all.csv')
+test_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/new/test_all.csv')
 raw_datasets['train'] = raw_datasets['train'].map(add_question,remove_columns=raw_datasets['train'].column_names)
 test_datasets['test'] = test_datasets['train'].map(add_question,remove_columns=test_datasets['train'].column_names)
 raw_datasets['test'] = test_datasets['test']
@@ -202,7 +202,7 @@ def compute_metrics(start_logits, end_logits, features, examples):
 
 model = AutoModelForQuestionAnswering.from_pretrained(model_checkpoint)
 args = TrainingArguments(
-    "esg-QA",
+    "esg-QA-all",
     evaluation_strategy="no",
     save_strategy="epoch",
     learning_rate=2e-5,

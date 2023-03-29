@@ -3,10 +3,14 @@ import torch
 # Replace this with your own checkpoint
 # model_checkpoint = "deepset/roberta-base-squad2"
 model_checkpoint = "bert-large-uncased-whole-word-masking-finetuned-squad"
-question_answerer = pipeline("question-answering", model='bert-finetuned-esgQA-fine-grained-8-2')
+question_answerer = pipeline("question-answering", model='/home/linzhisheng/esg/QA/esg-QA-new')
 
 
 question_answerer2 = pipeline("question-answering", model=model_checkpoint)
+
+
+
+
 context = """
 
 The Group is principally engaged in education services. No substantial emissions are produced by
@@ -21,7 +25,9 @@ Sulphur dioxide (SOx) Gram 637. 2
 Particulate Matter Gram 66, 032. 1
 
 """
-question = "How much emission?"
+f = open('new/example.txt','r')
+context = f.read()
+question = "How much NOxEmissions?"
 
 t = question_answerer(question=question, context=context)
 print(t)
@@ -32,8 +38,8 @@ print(t)
 
 # answer = question_answerer(question=question, context=context)['answer']
 
-question = "What is the unit of {}?".format('673,012')
-print(question_answerer2(question=question, context=context))
+# question = "What is the unit of {}?".format('673,012')
+# print(question_answerer2(question=question, context=context))
 
-question = "What is the data {} about?".format('673,012')
-print(question_answerer2(question=question, context=context))
+# question = "What is the data {} about?".format('673,012')
+# print(question_answerer2(question=question, context=context))

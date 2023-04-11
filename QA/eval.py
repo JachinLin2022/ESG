@@ -9,7 +9,7 @@ import numpy as np
 import evaluate
 from tqdm.auto import tqdm
 
-model_checkpoint = "/home/linzhisheng/esg/QA/esg-QA"
+model_checkpoint = "/home/linzhisheng/esg/QA/esg-QA-deberta"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 n_best = 20
 max_answer_length = 30
@@ -36,8 +36,8 @@ def add_question(example):
     return example
 
 
-raw_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/train.csv')
-test_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/test.csv')
+raw_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/new/train.csv')
+test_datasets = load_dataset('csv', data_files='/home/linzhisheng/esg/QA/new/test.csv')
 raw_datasets['train'] = raw_datasets['train'].map(add_question,remove_columns=raw_datasets['train'].column_names)
 test_datasets['test'] = test_datasets['train'].map(add_question,remove_columns=test_datasets['train'].column_names)
 raw_datasets['test'] = test_datasets['test']
@@ -230,7 +230,7 @@ model = AutoModelForQuestionAnswering.from_pretrained(model_checkpoint)
 
 args = TrainingArguments(
     "bert-finetuned-esgQA-eval",
-    per_device_eval_batch_size=256,
+    per_device_eval_batch_size=128,
     fp16=True,
 
 )

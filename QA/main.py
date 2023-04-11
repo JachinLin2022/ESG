@@ -40,7 +40,7 @@ class ESG():
             num_train_epochs=3,
             weight_decay=0.01,
             per_device_train_batch_size=6,
-            per_device_eval_batch_size=128,
+            per_device_eval_batch_size=64,
             fp16=True,
             # no_cuda=True,
             push_to_hub=False,
@@ -143,9 +143,9 @@ class ESG():
         
 
 
-model_checkpoint = "/home/linzhisheng/esg/QA/esg-QA-new"
+model_checkpoint = "/home/linzhisheng/esg/QA/esg-QA-deberta_new_path"
 tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
-
+print(tokenizer.is_fast)
 max_length = 384
 stride = 128
 
@@ -186,7 +186,7 @@ def add_question(example, template):
 
 def preprocess_validation_examples(examples):
     questions = [q.strip() for q in examples["question"]]
-    print('preprocess_validation_examples is :{}'.format(max_length))
+    # print('preprocess_validation_examples is :{}'.format(len(examples['context'])))
     inputs = tokenizer(
         questions,
         examples["context"],
@@ -263,9 +263,9 @@ def question(eval_firuge_set, template):
     result_set = extractor.get_fiture_set(next_question_set, eval_set, 5)
     return result_set
 
-extractor = ESG(model_checkpoint)
 
-test_data = load_dataset('csv', data_files = '/home/linzhisheng/esg/QA/new/report_all_final.csv')
+
+test_data = load_dataset('csv', data_files = '/home/linzhisheng/esg/QA/new/report_all_table.csv')
 test_data = test_data['train']
 
 
@@ -281,7 +281,8 @@ eval_set = small_eval_set.map(
     preprocess_validation_examples,
     batched=True,
     remove_columns=small_eval_set.column_names,
-    num_proc=16
+    # batch_size = 48,
+    # num_proc=28
 )
 
 # small_eval_set.save_to_disk('new/small_eval_set')
@@ -290,13 +291,13 @@ eval_set = small_eval_set.map(
 # small_eval_set = load_from_disk('small_eval_set')
 # eval_set = load_from_disk('eval_set')
 
-
+extractor = ESG(model_checkpoint)
 
 print((len(small_eval_set),len(eval_set)))
 
 eval_firuge_set = extractor.get_fiture_set(small_eval_set, eval_set, 1000)
 eval_firuge_set = eval_firuge_set.remove_columns('context')
-eval_firuge_set.to_csv('new/firuge_table_final.csv',index=False)
+eval_firuge_set.to_csv('new/deberta_firuge_1000_table.csv',index=False)
 
 # max_length = max_length + 50
 # extractor.update_model('bert-large-uncased-whole-word-masking-finetuned-squad')
